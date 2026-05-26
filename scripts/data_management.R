@@ -31,7 +31,8 @@ rm(data_loc, files_list)
 patient_chars <- data_list$alld |>
   select(SubjectID, age, sex, SPID) |> 
   mutate(sex = as.factor(sex),
-         SPID = as.factor(SPID))
+         SPID = as.factor(SPID)) |> 
+  mutate(SPID = relevel(SPID, ref = "Q"))
 
 
 ## HR --------------------------------------------------------------------------------------------------------------
