@@ -26,20 +26,31 @@ rm(data_loc, files_list)
 
 # Helper Functions -------------------------------------------------------------------------------------------------
 
-# Return "clm" or "lm" based on the Treatment variable and the narrow-range cutoff
+# Return "clm" or "lm" based on the Treatment variable and the narrow-range cutoff.
+# treatment: vector of Treatment values from one dataset
+# cutoff: integer; integer-valued Treatment with <= cutoff unique values → "clm"
+# returns: character string "clm" or "lm"
 classify_outcome <- function(treatment, cutoff) {
   if (is.ordered(treatment)) return("clm")
   if (is.integer(treatment) && length(unique(treatment)) <= cutoff) return("clm")
   "lm"
 }
 
-# Coerce Treatment to an ordered factor if it is not already
+# Coerce Treatment to an ordered factor if it is not already (required by clm).
+# treatment: Treatment vector; already-ordered factors are returned as-is
+# returns: ordered factor with sorted unique values as levels
 prepare_treatment <- function(treatment) {
   if (is.ordered(treatment)) return(treatment)
   ordered(treatment, levels = sort(unique(treatment)))
 }
 
-# Extract SPID coefficients and return a tidy data frame with standardised column names
+# Extract SPID coefficients from a fitted model and return a tidy data frame.
+# Both lm and clm summaries produce a 4-column matrix (Estimate, Std. Error, statistic, p-value),
+# so column names are standardised uniformly regardless of model type.
+# fit: fitted lm or clm object
+# model_type: character string "lm" or "clm"
+# dataset_name: character string used to label rows in the combined summary table
+# returns: data frame with columns estimate, std_error, statistic, p_value, term, dataset, model_type
 extract_spid_coef <- function(fit, model_type, dataset_name) {
   coef_table <- coef(summary(fit))
   spid_rows  <- grepl("^SPID", rownames(coef_table))
@@ -52,7 +63,12 @@ extract_spid_coef <- function(fit, model_type, dataset_name) {
   spid_coef
 }
 
-# Analyse one dataset: classify, fit, run diagnostics, extract SPID coefficients
+# Analyse one dataset: classify outcome, fit the appropriate model, run diagnostics,
+# and extract SPID-only regression coefficients.
+# df: data frame with columns Treatment, Baseline, age, sex, SPID
+# dataset_name: character label used in the results list and coefficient table
+# cutoff: narrow-range cutoff forwarded to classify_outcome (default: narrow_cutoff)
+# returns: list(model_type, fit, diagnostics, spid_coef)
 analyze_dataset <- function(df, dataset_name, cutoff = narrow_cutoff) {
   formula    <- Treatment ~ Baseline + age + sex + SPID
   model_type <- classify_outcome(df$Treatment, cutoff)
