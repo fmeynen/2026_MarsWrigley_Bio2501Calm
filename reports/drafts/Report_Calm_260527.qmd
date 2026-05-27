@@ -58,6 +58,10 @@ source(here("scripts", "helpers.R"))
 data_path <- here("data", "test")
 data_files <- list.files(data_path, pattern = "\\.rds$", full.names = TRUE)
 
+if (length(data_files) == 0) {
+  stop("No .rds datasets found in data/test.")
+}
+
 data_list <- lapply(data_files, readRDS)
 names(data_list) <- tools::file_path_sans_ext(basename(data_files))
 
@@ -82,6 +86,11 @@ names(results) <- names(data_list)
 ```
 
 ```{r spid_summary}
+missing_spid_coef <- names(results)[!vapply(results, function(x) "spid_coef" %in% names(x), logical(1))]
+if (length(missing_spid_coef) > 0) {
+  stop(sprintf("Missing spid_coef in results for: %s", paste(missing_spid_coef, collapse = ", ")))
+}
+
 spid_summary <- bind_rows(lapply(results, function(x) x$spid_coef)) |>
   mutate(adjusted_p_value = p.adjust(p_value, method = "BH")) |>
   arrange(adjusted_p_value)
