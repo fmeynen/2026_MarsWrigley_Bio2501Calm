@@ -88,14 +88,17 @@ names(results) <- names(data_list)
 ```{r spid_summary}
 missing_spid_coef <- names(results)[!vapply(results, function(x) "spid_coef" %in% names(x), logical(1))]
 if (length(missing_spid_coef) > 0) {
-  stop(sprintf(
-    paste(
-      "Missing spid_coef in results for: %s.",
-      "This typically indicates a failed model fit or incomplete output from analyze_dataset().",
-      "Review model diagnostics for the listed datasets and rerun the analysis."
-    ),
-    paste(missing_spid_coef, collapse = ", ")
-  ))
+  stop(
+    sprintf(
+      paste(
+        "Missing spid_coef in results for: %s.",
+        "This typically indicates a failed model fit or incomplete output from analyze_dataset().",
+        "Review model diagnostics for the listed datasets and rerun the analysis.",
+        sep = "\n"
+      ),
+      paste(missing_spid_coef, collapse = ", ")
+    )
+  )
 }
 
 spid_summary <- bind_rows(lapply(results, function(x) x$spid_coef)) |>
