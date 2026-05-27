@@ -61,14 +61,22 @@ data_files <- list.files(data_path, pattern = "\\.rds$", full.names = TRUE)
 data_list <- lapply(data_files, readRDS)
 names(data_list) <- tools::file_path_sans_ext(basename(data_files))
 
-length(data_list)
+tibble::tibble(
+  n_datasets = length(data_list),
+  first_dataset = names(data_list)[1]
+)
 ```
 
 ```{r run_models}
-narrow_cutoff <- 6
+# Integer outcomes with <= 6 unique values are modeled as ordinal outcomes.
+narrow_range_unique_value_cutoff <- 6
 
 results <- lapply(names(data_list), function(dataset_name) {
-  analyze_dataset(data_list[[dataset_name]], dataset_name, cutoff = narrow_cutoff)
+  analyze_dataset(
+    data_list[[dataset_name]],
+    dataset_name,
+    cutoff = narrow_range_unique_value_cutoff
+  )
 })
 names(results) <- names(data_list)
 ```
