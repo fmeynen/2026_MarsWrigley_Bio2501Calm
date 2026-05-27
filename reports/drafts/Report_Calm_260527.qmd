@@ -32,7 +32,52 @@ We will report the effect size estimate and p-value of each treatment on each ou
 
 ## Results
 
-```{r}
-
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
 ```
 
+```{r libraries}
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(tidyr)
+  library(here)
+  library(ordinal)
+  library(sure)
+})
+```
+
+```{r load_helpers}
+source(here("scripts", "helpers.R"))
+```
+
+```{r load_data}
+data_path <- here("data", "test")
+data_files <- list.files(data_path, pattern = "\\.rds$", full.names = TRUE)
+
+data_list <- lapply(data_files, readRDS)
+names(data_list) <- tools::file_path_sans_ext(basename(data_files))
+
+length(data_list)
+```
+
+```{r run_models}
+narrow_cutoff <- 6
+
+results <- lapply(names(data_list), function(dataset_name) {
+  analyze_dataset(data_list[[dataset_name]], dataset_name, cutoff = narrow_cutoff)
+})
+names(results) <- names(data_list)
+```
+
+```{r spid_summary}
+spid_summary <- bind_rows(lapply(results, function(x) x$spid_coef)) |>
+  mutate(adjusted_p_value = p.adjust(p_value, method = "BH")) |>
+  arrange(adjusted_p_value)
+
+spid_summary |>
+  select(dataset, model_type, term, estimate, std_error, statistic, p_value, adjusted_p_value)
+```
