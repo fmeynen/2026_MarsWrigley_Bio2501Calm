@@ -4,35 +4,243 @@ format: docx
 editor: visual
 ---
 
-## Data
+```{r}
+#| label: tbl-results
+#| tbl-cap: "Overview of results"
+#| echo: false
+```
 
-There are 4 different conditions of interest and one placebo group. Each group contains 20 subjects for a total of 100 subjects.
-
-We consider a total of 29 different endpoints. 18 endpoints related to MOOD (10 component scores and 8 aggregate scores), 2 endpoints of NASA-TLX aggregate scores (raw and weighted), 1 endpoint measuring cortisol levels in saliva, 7 endpoints of the STAI short form (6 component scores and 1 aggregate score) and finally 1 endpoint concerning stress VAS.
-
-For each subject, each endpoint is measured 4 times: baseline pre stressor event, baseline post stressor event, treatment pre stressor event and treatment post stressor event. For each measurement the difference $\Delta = x_{post} - x_{pre}$ is calculated for both the baseline and treatment measurements.
-
-### Missing Data
-
-Missing data is minimal. Treatment data of subject 108/N-Z (treatment: P) is not available. In addition, for subjects 001/M-B (treatment: S) and 025/M-E (Treatment: P) Baseline saliva cortisol levels are not available and for subjects 030/S-H (Treatment: T) and 085/I-J (Treatment: P) both baseline and treatment cortisol levels are not available.
-
-We will consider missing data as missing completely at random.
-
-## Methods
-
-All measurements are treated as continuous, except for the STAI component variables. Since these outcome variables are integers with a narrow range, we opt to treat them as an ordinal variable. The overall STAI score is considered continuous.
-
-If necessary, other integer outcome variables can be treated as ordinal variables if the range of outcomes is small.
-
-For the continuous outcome variables, a linear model (lm) is fitted which quantifies the effect of the SPID, while controlling for baseline difference, sex and age. Model assumptions are assesed visually with plots.
-
-For the ordinal outcome variables a cumulative link model (clm) is fitted which quantifies the effect of the SPID, while controlling for baseline difference, sex and age. The proportional odds assumption are assesed with nominal_test(). Homoscedacity is assessed with the scale_test().
-
-We will report the effect size estimate and p-value of each treatment on each outcome. For estimates of clm's we will also report exponentiated coefficients. We will provide both uncorrected p-values as well as a Benjamini-Hochberg corrected p-values.
-
-## Results
 
 ```{r}
 
 ```
 
+
+
+## Data
+
+There are four active conditions of interest (names P, R, S and T) and one placebo group (named Q). Each group contains twenty subjects for a total of hundred subjects.
+
+We consider a total of 29 different endpoints: 18 endpoints related to MOOD (10 component scores and 8 aggregate scores), 2 endpoints of NASA-TLX aggregate scores (raw and weighted), 1 endpoint measuring cortisol levels in saliva, 7 endpoints of the STAI short form (6 component scores and 1 aggregate score) and finally 1 endpoint concerning stress VAS.
+
+For each subject, each endpoint is measured 4 times: baseline pre stressor event, baseline post stressor event, treatment pre stressor event and treatment post stressor event. For each measurement the difference $\Delta = x_{post} - x_{pre}$ is calculated for both the baseline and treatment measurements.
+
+### Missing Data
+
+Missing data is minimal. Treatment data of subject 108/N-Z (treatment: P) is not available. In addition, for subjects 001/M-B (treatment: S) and 025/M-E (Treatment: P) Baseline saliva cortisol levels are not available and for subjects 030/S-H (treatment: T) and 085/I-J (treatment: P) both baseline and treatment cortisol levels are not available.
+
+We will consider missing data as missing completely at random.
+
+## Methods
+
+All measurements are treated as continuous, except for the STAI component variables. Since these outcome variables are integers with a narrow range, we opt to treat them as ordinal variables. The overall STAI score is considered continuous.
+
+If necessary, other integer outcome variables can be treated as ordinal variables if the range of outcomes is small.
+
+For the continuous outcome variables, a linear model (lm) is fitted, which quantifies the effect of the SPID while controlling for baseline difference, sex, and age. Model assumptions are assessed visually with plots.
+
+For the ordinal outcome variables, a cumulative link model (clm) is fitted which quantifies the effect of the SPID, while controlling for baseline difference, sex and age. The proportional odds assumption is assessed with nominal_test(). Homoscedasticity is assessed with the scale_test().
+
+We will report the effect size estimate and p-value of each treatment on each outcome. For estimates of CLM's we will also report exponentiated coefficients. We will provide both uncorrected p-values as well as Benjamini-Hochberg-corrected p-values.
+
+## Results
+
+### P
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+P <- readRDS(here::here("results", "tables", "spid_P.rds"))
+library(dplyr)
+library(gt)
+library(stringr)
+df_table <- P |>
+  mutate(
+    # Assign group labels
+    group = case_when(
+      str_starts(variable, "mood_")  ~ "Mood",
+      str_starts(variable, "stai_")  ~ "STAI",
+      str_starts(variable, "nasa_")  ~ "NASA",
+      variable == "saliva"           ~ "Saliva",
+      variable == "vas"              ~ "VAS"
+    ),
+    # Strip prefixes from variable names
+    variable = str_remove(variable, "^(mood|stai|nasa)_")
+  ) |>
+  mutate(group = factor(group, levels = c("Mood", "STAI", "NASA", "Saliva", "VAS"))) |>
+  arrange(group)
+
+df_table |>
+  gt(groupname_col = "group", rowname_col = "variable") |>
+  sub_missing(missing_text = "") |>
+  cols_label(
+    estimate    = "Estimate",
+    exp_estimate = "Exp(Estimate)",
+    p_value     = "p-value",
+    adjusted_p  = "Adjusted p"
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_row_groups()
+  ) |>
+  fmt_number(
+    columns = c(estimate, exp_estimate),
+    decimals = 3
+  ) |>
+  fmt_number(
+    columns = c(p_value, adjusted_p),
+    decimals = 3
+  ) |>
+  tab_options(
+    row_group.background.color = "#f2f2f2",
+    table.font.size = px(12)
+  )
+
+```
+
+### R
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+R <- readRDS(here::here("results", "tables", "spid_R.rds"))
+library(dplyr)
+library(gt)
+library(stringr)
+df_table <- R |>
+  mutate(
+    # Assign group labels
+    group = case_when(
+      str_starts(variable, "mood_")  ~ "Mood",
+      str_starts(variable, "stai_")  ~ "STAI",
+      str_starts(variable, "nasa_")  ~ "NASA",
+      variable == "saliva"           ~ "Saliva",
+      variable == "vas"              ~ "VAS"
+    ),
+    # Strip prefixes from variable names
+    variable = str_remove(variable, "^(mood|stai|nasa)_")
+  ) |>
+  mutate(group = factor(group, levels = c("Mood", "STAI", "NASA", "Saliva", "VAS"))) |>
+  arrange(group)
+
+df_table |>
+  gt(groupname_col = "group", rowname_col = "variable") |>
+  sub_missing(missing_text = "") |>
+  cols_label(
+    estimate    = "Estimate",
+    exp_estimate = "Exp(Estimate)",
+    p_value     = "p-value",
+    adjusted_p  = "Adjusted p"
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_row_groups()
+  ) |>
+  fmt_number(
+    columns = c(estimate, exp_estimate),
+    decimals = 3
+  ) |>
+  fmt_number(
+    columns = c(p_value, adjusted_p),
+    decimals = 3
+  ) |>
+  tab_options(
+    row_group.background.color = "#f2f2f2",
+    table.font.size = px(12)
+  )
+
+```
+
+### S
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+S <- readRDS(here::here("results", "tables", "spid_S.rds"))
+library(dplyr)
+library(gt)
+library(stringr)
+df_table <- S |>
+  mutate(
+    # Assign group labels
+    group = case_when(
+      str_starts(variable, "mood_")  ~ "Mood",
+      str_starts(variable, "stai_")  ~ "STAI",
+      str_starts(variable, "nasa_")  ~ "NASA",
+      variable == "saliva"           ~ "Saliva",
+      variable == "vas"              ~ "VAS"
+    ),
+    # Strip prefixes from variable names
+    variable = str_remove(variable, "^(mood|stai|nasa)_")
+  ) |>
+  mutate(group = factor(group, levels = c("Mood", "STAI", "NASA", "Saliva", "VAS"))) |>
+  arrange(group)
+
+df_table |>
+  gt(groupname_col = "group", rowname_col = "variable") |>
+  sub_missing(missing_text = "") |>
+  cols_label(
+    estimate    = "Estimate",
+    exp_estimate = "Exp(Estimate)",
+    p_value     = "p-value",
+    adjusted_p  = "Adjusted p"
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_row_groups()
+  ) |>
+  fmt_number(
+    columns = c(estimate, exp_estimate),
+    decimals = 3
+  ) |>
+  fmt_number(
+    columns = c(p_value, adjusted_p),
+    decimals = 3
+  ) |>
+  tab_options(
+    row_group.background.color = "#f2f2f2",
+    table.font.size = px(12)
+  )
+
+```
+
+### T
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+T <- readRDS(here::here("results", "tables", "spid_T.rds"))
+library(dplyr)
+library(gt)
+library(stringr)
+df_table <- T |>
+  mutate(
+    # Assign group labels
+    group = case_when(
+      str_starts(variable, "mood_")  ~ "Mood",
+      str_starts(variable, "stai_")  ~ "STAI",
+      str_starts(variable, "nasa_")  ~ "NASA",
+      variable == "saliva"           ~ "Saliva",
+      variable == "vas"              ~ "VAS"
+    ),
+    # Strip prefixes from variable names
+    variable = str_remove(variable, "^(mood|stai|nasa)_")
+  ) |>
+  mutate(group = factor(group, levels = c("Mood", "STAI", "NASA", "Saliva", "VAS"))) |>
+  arrange(group)
+
+df_table |>
+  gt(groupname_col = "group", rowname_col = "variable") |>
+  sub_missing(missing_text = "") |>
+  cols_label(
+    estimate    = "Estimate",
+    exp_estimate = "Exp(Estimate)",
+    p_value     = "p-value",
+    adjusted_p  = "Adjusted p"
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_row_groups()
+  ) |>
+  fmt_number(
+    columns = c(estimate, exp_estimate),
+    decimals = 3
+  ) |>
+  fmt_number(
+    columns = c(p_value, adjusted_p),
+    decimals = 3
+  ) |>
+  tab_options(
+    row_group.background.color = "#f2f2f2",
+    table.font.size = px(12)
+  )
+
+```
