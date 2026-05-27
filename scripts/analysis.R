@@ -1,15 +1,14 @@
 rm(list = ls())
 
 # Libraries --------------------------------------------------------------------------------------------------------
-
 library(ordinal)
 library(sure)
+library(tidyr)
 
 # Settings ---------------------------------------------------------------------------------------------------------
-
 data_loc <- "data/processed"
 # Treatment is treated as ordinal when it is integer-valued with at most this many unique observed values
-narrow_cutoff <- 10
+narrow_cutoff <- 6
 
 # Load Data --------------------------------------------------------------------------------------------------------
 files_list <- list.files(data_loc, pattern = "\\.rds$")
@@ -18,64 +17,7 @@ names(data_list) <- files_list
 rm(data_loc, files_list)
 
 # Helper Functions -------------------------------------------------------------------------------------------------
-
-# Return "clm" or "lm" based on the Treatment variable and the narrow-range cutoff.
-classify_outcome <- function(treatment, cutoff) {
-  if (is.ordered(treatment)) return("clm")
-  if (is.integer(treatment) && length(unique(treatment)) <= cutoff) return("clm")
-  "lm"
-}
-
-# Coerce Treatment to an ordered factor if it is not already (required by clm).
-prepare_treatment <- function(treatment) {
-  if (is.ordered(treatment)) return(treatment)
-  ordered(treatment, levels = sort(unique(treatment)))
-}
-
-# Extract SPID coefficients from a fitted model and return a tidy data frame.
-extract_spid_coef <- function(fit, model_type, dataset_name) {
-  coef_table <- coef(summary(fit))
-  spid_rows  <- grepl("^SPID", rownames(coef_table))
-  spid_coef  <- as.data.frame(coef_table[spid_rows, , drop = FALSE])
-  colnames(spid_coef) <- c("estimate", "std_error", "statistic", "p_value")
-  spid_coef$term       <- rownames(spid_coef)
-  spid_coef$dataset    <- dataset_name
-  spid_coef$model_type <- model_type
-  rownames(spid_coef)  <- NULL
-  spid_coef
-}
-
-# Analyse one dataset: classify outcome, fit the appropriate model, run diagnostics,
-# and extract SPID regression coefficients.
-analyze_dataset <- function(df, dataset_name, cutoff = narrow_cutoff) {
-  formula    <- Treatment ~ Baseline + age + sex + SPID
-  model_type <- classify_outcome(df$Treatment, cutoff)
-
-  if (model_type == "clm") {
-    df$Treatment <- prepare_treatment(df$Treatment)
-    fit <- clm(formula, data = df, link = "logit")
-    diagnostics <- list(
-      summary      = summary(fit),
-      nominal_test = nominal_test(fit),
-      scale_test   = scale_test(fit),
-      qq_plot      = sure::autoplot.clm(fit, what = "qq")
-    )
-  } else {
-    fit <- lm(formula, data = df)
-    # Standard diagnostic plots are available via plot(results$<dataset>$fit)
-    diagnostics <- list(
-      summary = summary(fit)
-    )
-  }
-
-  list(
-    model_type  = model_type,
-    fit         = fit,
-    diagnostics = diagnostics,
-    spid_coef   = extract_spid_coef(fit, model_type, dataset_name)
-  )
-}
-
+source(here::here("scripts", "helpers.R"))
 
 # Run Analysis ----------------------------------------------------------------------------------------------------
 
@@ -108,7 +50,23 @@ spid_summary <- do.call(rbind, lapply(results, function(r) r$spid_coef))
 rownames(spid_summary) <- NULL
 
 print(spid_summary)
-library(tidyr)
+
+spid_summary |> 
+  select(estimate, p_value, term, dataset, model_type) |> 
+  mutate(adjusted_p = p.adjust(p_value, method = "BH")) |> 
+  pivot_wider(names_from = term, values_from = c(1,2,6)) |> 
+  select(c(1,2,3,7,11,4,8,12,5,9,13,6,10,14))
+
+# Scratchpad ------------------------------------------------------------------------------------------------------
+lapply(seq_along(results), function(df){
+  paste0(names(results)[[df]], ", ", results[[df]]$model_type)
+})
+
+results[[1]]$model_type
+
 
 View(pivot_wider(spid_summary, names_from = term, values_from = c(1:4)))
-?pivot_wider
+
+
+
+
