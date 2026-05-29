@@ -75,6 +75,7 @@ mood_diff_list <- lapply(vars, function(v) {
 })
 names(mood_diff_list) <- vars
 
+#save data
 lapply(names(mood_diff_list), function(x) {
   saveRDS(mood_diff_list[[x]], file = paste0("data/processed/data_mood_", x, ".rds" ))
 })
@@ -82,6 +83,8 @@ lapply(names(mood_diff_list), function(x) {
   saveRDS(anonymize_data(mood_diff_list[[x]]), file = paste0("data/test/data_mood_", x, ".rds" ))
 })
 # because of narrow range of results, we will handle the outcome as an ordered factor
+
+
 
 ## NASA ------------------------------------------------------------------------------------------------------------
 
@@ -115,6 +118,8 @@ saliva_diff <- data_list$saliva |>
   select(SubjectID, Period, diff) |> 
   pivot_wider(names_from = Period, values_from = diff) |>
   left_join(patient_chars) 
+
+saliva_diff[which(is.na(saliva_diff))%%100,]
 
 saveRDS(saliva_diff, file = "data/processed/data_saliva.rds")
 saveRDS(anonymize_data(saliva_diff), file = "data/test/data_saliva.rds")  
@@ -181,3 +186,102 @@ saveRDS(anonymize_data(vas_diff), file = "data/test/data_vas.rds")
 
 
 # Scratchpad ------------------------------------------------------------------------------------------------------
+
+order_mood <- c("CALM", "ENERGETIC", "IRRITATED", "LETHARGIC", "LISTLESS", "LIVELY",
+                "NERVOUS", "RELAXED", "FOCUSED", "ANXIOUS",
+                "AP", "nAnP", "nAP", "AnP",
+                "PLEASURE", "AROUSAL", "VITALITY", "STABILITY")
+
+sum_list_mood <- data_list$mood_ra |> 
+  select(SubjectID, scale, Pre, Post, SPID) |>
+  rename(Pre_Treatment = Pre,
+         Post_Treatment = Post) |> 
+  left_join(data_list$mood_ra_b) |> 
+  rename(Pre_Baseline = Pre,
+         Post_Baseline = Post,
+         variable = scale) |> 
+  filter(variable != "") |> 
+  left_join(patient_chars) |> 
+  select(variable, SPID, Pre_Baseline, Post_Baseline, Pre_Treatment, Post_Treatment) |> 
+  group_by(variable,SPID) |> 
+  summarise(across(everything(), ~ round(mean(.x, na.rm = TRUE), 4))) |> 
+  ungroup() |> 
+  mutate(order = match(variable, order_mood)) |> 
+  arrange(coalesce(order, Inf)) |> 
+  select(-order) |> 
+  group_by(SPID) |>
+  mutate(variable = paste0("mood_", variable)) |> 
+  select(variable, SPID, Pre_Baseline, Post_Baseline, Pre_Treatment, Post_Treatment) |> 
+  group_split()
+
+sum_list_nasa <- data_list$nasa_ra |> 
+  select(SubjectID, period, score, Post_MTF, Pre_MTF, SPID) |>
+  pivot_wider(names_from = period, values_from = c(Post_MTF, Pre_MTF)) |> 
+  rename(Post_Baseline  = Post_MTF_Baseline,
+         Post_Treatment = Post_MTF_Treatment,
+         Pre_Baseline   = Pre_MTF_Baseline,
+         Pre_Treatment  = Pre_MTF_Treatment,
+         variable       = score) |> 
+  select(-SubjectID) |> 
+  group_by(variable, SPID) |> 
+  summarise(across(everything(), ~ round(mean(.x, na.rm = TRUE), 4))) |>
+  ungroup() |> 
+  group_by(SPID) |> 
+  mutate(variable = paste0("nasa_", variable)) |> 
+  select(variable, SPID, Pre_Baseline, Post_Baseline, Pre_Treatment, Post_Treatment) |> 
+  group_split()
+
+sum_list_saliva <- data_list$saliva |> 
+  select(SubjectID, Period, Post, Pre, SPID) |>
+  mutate(variable = "saliva") |> 
+  pivot_wider(names_from = Period, values_from = c(Post, Pre)) |> 
+  select(-SubjectID) |> 
+  group_by(variable, SPID) |> 
+  summarise(across(everything(), ~ round(mean(.x, na.rm = TRUE), 4))) |>
+  ungroup() |> 
+  group_by(SPID) |> 
+  select(variable, SPID, Pre_Baseline, Post_Baseline, Pre_Treatment, Post_Treatment) |> 
+  group_split()
+
+order_stai <- c("CALM", "TENSE", "UPSET", "RELAXED", "CONTENT", "WORRIED", "STAI")
+sum_list_stai <- stai |>
+  pivot_longer(cols = c(CALM, TENSE, UPSET, RELAXED, CONTENT, WORRIED, STAI)) |> 
+  left_join(patient_chars) |> 
+  separate(TP, into = c("Condition", "Timing"), sep = " - ") |> 
+  pivot_wider(names_from = Timing, values_from = value) |> 
+  pivot_wider(names_from = Condition, values_from = c(Pre, Post)) |> 
+  rename(variable = name) |> 
+  mutate(order = match(variable, order_stai)) |> 
+  arrange(coalesce(order, Inf)) |> 
+  select(-order) |>
+  select(-SubjectID, -sex) |> 
+  group_by(variable, SPID) |> 
+  summarise(across(everything(), ~ round(mean(.x, na.rm = TRUE), 4))) |>
+  ungroup() |> 
+  group_by(SPID) |> 
+  mutate(variable = paste0("stai_", variable)) |> 
+  select(variable, SPID, Pre_Baseline, Post_Baseline, Pre_Treatment, Post_Treatment) |> 
+  group_split()
+
+
+sum_list_vas <- data_list$vas_b |> 
+  select(SubjectID, SPID, Pre, Post) |> 
+  rename(Pre_Baseline = Pre,
+         Post_Baseline = Post) |> 
+  mutate(variable = "vas") |> 
+  left_join(data_list$vas_ra) |> 
+  rename(Pre_Treatment = Pre,
+         Post_Treatment = Post) |> 
+  select(variable, SPID, Pre_Baseline, Post_Baseline, Pre_Treatment, Post_Treatment) |> 
+  group_by(variable, SPID) |> 
+  summarise(across(everything(), ~ round(mean(.x, na.rm = TRUE), 4))) |>
+  ungroup() |> 
+  group_by(SPID) |> 
+  select(variable, SPID, Pre_Baseline, Post_Baseline, Pre_Treatment, Post_Treatment) |> 
+  group_split()
+
+sum_vars_by_spid <- Map(bind_rows,
+                        sum_list_mood, sum_list_nasa, sum_list_saliva, sum_list_stai, sum_list_vas)
+
+names(sum_vars_by_spid) <- LETTERS[16:20]
+saveRDS(sum_vars_by_spid, file = "results/tables/sum_vars_by_spid.rds")

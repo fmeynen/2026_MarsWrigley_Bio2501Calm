@@ -51,11 +51,37 @@ rownames(spid_summary) <- NULL
 
 print(spid_summary)
 
-spid_summary |> 
+
+order_mood <- c("CALM", "ENERGETIC", "IRRITATED", "LETHARGIC", "LISTLESS", "LIVELY",
+                "NERVOUS", "RELAXED", "FOCUSED", "ANXIOUS",
+                "AP", "nAnP", "nAP", "AnP",
+                "PLEASURE", "AROUSAL", "VITALITY", "STABILITY")
+order_stai <- c("CALM", "TENSE", "UPSET", "RELAXED", "CONTENT", "WORRIED", "STAI")
+
+spid_list <- spid_summary |> 
   select(estimate, p_value, term, dataset, model_type) |> 
-  mutate(adjusted_p = p.adjust(p_value, method = "BH")) |> 
-  pivot_wider(names_from = term, values_from = c(1,2,6)) |> 
-  select(c(1,2,3,7,11,4,8,12,5,9,13,6,10,14))
+  mutate(adjusted_p = p.adjust(p_value, method = "BH")) |>
+  mutate(exp_estimate = ifelse(model_type == "clm", exp(estimate), NA),
+         treatment = gsub("^SPID", "", term),
+         variable = gsub("^data_|\\.rds$", "", dataset)) |>
+  select(-term, -dataset) |> 
+  mutate(order = match(str_remove(variable, "stai_"), order_stai)) |> 
+  arrange(coalesce(order, Inf)) |> 
+  select(-order) |>
+  mutate(order = match(str_remove(variable, "mood_"), order_mood)) |> 
+  arrange(coalesce(order, Inf)) |> 
+  select(variable, treatment, estimate, exp_estimate, p_value, adjusted_p) |> 
+  mutate(across(where(is.numeric), ~ signif(.x, digits = 4))) |> 
+  group_by(treatment) |> 
+  group_split() 
+names(spid_list) <- c("P", "R", "S", "T")
+
+spid_list <- lapply(spid_list, function(x) x |> select(-treatment))
+spid_list
+
+lapply(seq_along(spid_list), function(x) {
+  saveRDS(spid_list[[x]], file = paste0("results/tables/spid_", names(spid_list)[x], ".rds"))
+})
 
 # Scratchpad ------------------------------------------------------------------------------------------------------
 lapply(seq_along(results), function(df){

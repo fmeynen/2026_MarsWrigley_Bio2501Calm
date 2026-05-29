@@ -170,3 +170,80 @@ analyze_dataset <- function(df, dataset_name, cutoff = narrow_cutoff) {
     spid_coef   = extract_spid_coef(fit, model_type, dataset_name)
   )
 }
+
+# Create tables for the report
+create_table <- function(condition) {
+  df <- readRDS(here::here("results", "tables", paste0("spid_", condition, ".rds")))
+  
+  df_table <- df |>
+    mutate(
+      group = case_when(
+        str_starts(variable, "mood_")  ~ "Mood",
+        str_starts(variable, "stai_")  ~ "STAI",
+        str_starts(variable, "nasa_")  ~ "NASA",
+        variable == "saliva"           ~ "Saliva",
+        variable == "vas"              ~ "VAS"
+      ),
+      variable = str_remove(variable, "^(mood|stai|nasa)_")
+    ) |>
+    mutate(across(c(estimate, exp_estimate, p_value, adjusted_p),
+                  \(x) round(x, 3))) |>
+    mutate(group = factor(group, levels = c("Mood", "STAI", "NASA", "Saliva", "VAS"))) |>
+    arrange(group)
+  
+  df_grouped <- as_grouped_data(df_table, groups = c("group"))
+  
+  as_flextable(df_grouped) |>
+    set_header_labels(
+      variable     = " ",
+      estimate     = "Estimate",
+      exp_estimate = "Exp(Estimate)",
+      p_value      = "p-value",
+      adjusted_p   = "Adjusted p"
+    ) |>
+    colformat_double(
+      j      = c("estimate", "exp_estimate", "p_value", "adjusted_p"),
+      digits = 3,
+      na_str = ""
+    ) |>
+    bold(i = ~ !is.na(p_value) & p_value < 0.05) |>
+    bg(i = ~ !is.na(group), bg = "#f2f2f2", part = "body") |>
+    autofit()
+}
+create_sum_table <- function(condition) {
+  list <- readRDS(here::here("results", "tables", "sum_vars_by_spid.rds"))
+  df <- list[[condition]]
+  
+  df_table <- df |>
+    select(-SPID) |> 
+    mutate(
+      group = case_when(
+        str_starts(variable, "mood_")  ~ "Mood",
+        str_starts(variable, "stai_")  ~ "STAI",
+        str_starts(variable, "nasa_")  ~ "NASA",
+        variable == "saliva"           ~ "Saliva",
+        variable == "vas"              ~ "VAS"
+      ),
+      variable = str_remove(variable, "^(mood|stai|nasa)_"),
+    ) |>
+    mutate(group = factor(group, levels = c("Mood", "STAI", "NASA", "Saliva", "VAS"))) |>
+    arrange(group)
+  
+  df_grouped <- as_grouped_data(df_table, groups = c("group"))
+  
+  as_flextable(df_grouped) |>
+    set_header_labels(
+      variable       = " ",
+      Pre_Baseline   = "Baseline Pre",
+      Post_Baseline  = "Baseline Post",
+      Pre_Treatment  = "Treatment Pre",
+      Post_Treatment = "Treatment Post"
+    ) |>
+    colformat_double(
+      j      = c("Pre_Baseline", "Post_Baseline", "Pre_Treatment", "Post_Treatment"),
+      digits = 4,
+      na_str = ""
+    ) |>
+    bg(i = ~ !is.na(group), bg = "#f2f2f2", part = "body") |>
+    autofit()
+}
